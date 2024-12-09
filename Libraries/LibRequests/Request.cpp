@@ -33,6 +33,8 @@ void Request::set_request_fd(Badge<Requests::RequestClient>, int fd)
     VERIFY(m_fd == -1);
     m_fd = fd;
 
+    dbgln("Request::set_request_fd(#{}) = {}", m_request_id, fd);
+
     auto notifier = Core::Notifier::construct(fd, Core::Notifier::Type::Read);
     auto stream = MUST(Core::File::adopt_fd(fd, Core::File::OpenMode::Read));
     notifier->on_activation = move(m_internal_stream_data->read_notifier->on_activation);
@@ -42,6 +44,7 @@ void Request::set_request_fd(Badge<Requests::RequestClient>, int fd)
 
 void Request::set_buffered_request_finished_callback(BufferedRequestFinished on_buffered_request_finished)
 {
+    dbgln("Request::set_buffered_request_finished_callback(#{})", m_request_id);
     VERIFY(m_mode == Mode::Unknown);
     m_mode = Mode::Buffered;
 
@@ -67,6 +70,7 @@ void Request::set_buffered_request_finished_callback(BufferedRequestFinished on_
     };
 
     set_up_internal_stream_data([this](auto read_bytes) {
+        dbgln("Request::<internal buffered read>(#{}): Read {} bytes", m_request_id, read_bytes.size());
         // FIXME: What do we do if this fails?
         m_internal_buffered_data->payload_stream.write_until_depleted(read_bytes).release_value_but_fixme_should_propagate_errors();
     });
@@ -74,6 +78,7 @@ void Request::set_buffered_request_finished_callback(BufferedRequestFinished on_
 
 void Request::set_unbuffered_request_callbacks(HeadersReceived on_headers_received, DataReceived on_data_received, RequestFinished on_finish)
 {
+    dbgln("Request::set_unbuffered_request_callbacks(#{})", m_request_id);
     VERIFY(m_mode == Mode::Unknown);
     m_mode = Mode::Unbuffered;
 
@@ -137,8 +142,10 @@ void Request::set_up_internal_stream_data(DataReceived on_data_available)
             auto result = m_internal_stream_data->read_stream->read_some({ buffer, buffer_size });
             if (result.is_error() && (!result.error().is_errno() || (result.error().is_errno() && result.error().code() != EINTR)))
                 break;
-            if (result.is_error())
+            if (result.is_error()) {
+                dbgln("read_notifier/onactivation hook: read none from pipe");
                 continue;
+            }
 
             auto read_bytes = result.release_value();
             if (read_bytes.is_empty())

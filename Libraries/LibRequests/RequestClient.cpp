@@ -36,6 +36,7 @@ RefPtr<Request> RequestClient::start_request(ByteString const& method, URL::URL 
     static i32 s_next_request_id = 0;
     auto request_id = s_next_request_id++;
 
+    dbgln("RequestClient::start_request(#{}): {} {}", request_id, method, url);
     IPCProxy::async_start_request(request_id, method, url, request_headers, body_result.release_value(), proxy_data);
     auto request = Request::create_from_id({}, *this, request_id);
     m_requests.set(request_id, request);

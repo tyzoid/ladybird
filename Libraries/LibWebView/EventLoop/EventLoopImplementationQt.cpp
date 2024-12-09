@@ -290,8 +290,12 @@ void EventLoopManagerQt::register_notifier(Core::Notifier& notifier)
     }
     auto socket_notifier = make<QSocketNotifier>(notifier.fd(), type);
     QObject::connect(socket_notifier, &QSocketNotifier::activated, [&notifier] {
+        dbgln("EventLoopManagerQt::register_notifier/notified(fd {})", notifier.fd());
         qt_notifier_activated(notifier);
     });
+    dbgln("EventLoopManagerQt::register_notifier(fd {})", notifier.fd());
+    socket_notifier->setEnabled(true);
+    qt_notifier_activated(notifier);
 
     ThreadData::the().notifiers.set(&notifier, move(socket_notifier));
 }

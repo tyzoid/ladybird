@@ -156,16 +156,23 @@ size_t ConnectionFromClient::on_data_received(void* buffer, size_t size, size_t 
 
     size_t total_size = size * nmemb;
 
+    dbgln("on_data_received(#{}): {} bytes", request->request_id, total_size);
+
     size_t remaining_length = total_size;
     u8 const* remaining_data = static_cast<u8 const*>(buffer);
     while (remaining_length > 0) {
         auto result = Core::System::write(request->writer_fd, { remaining_data, remaining_length });
         if (result.is_error()) {
             if (result.error().code() != EAGAIN) {
-                dbgln("on_data_received: write failed: {}", result.error());
+                dbgln("on_data_received(#{}): write failed: {}", request->request_id, result.error());
                 VERIFY_NOT_REACHED();
             }
+
             sched_yield();
+
+            dbgln("on_data_received(#{}): nothing wrote ({} bytes in queue)", request->request_id, remaining_length);
+            usleep(5000);
+
             continue;
         }
         auto nwritten = result.value();
@@ -175,6 +182,11 @@ size_t ConnectionFromClient::on_data_received(void* buffer, size_t size, size_t 
         }
         remaining_data += nwritten;
         remaining_length -= nwritten;
+
+        if (nwritten < 1024 && remaining_length) {
+            dbgln("on_data_received(#{}): small write ({} / {} bytes)", request->request_id, nwritten, remaining_length);
+            usleep(100);
+        }
     }
 
     Optional<u64> content_length_for_ipc;
@@ -522,6 +534,7 @@ void ConnectionFromClient::check_active_requests()
         }
 
         m_active_requests.remove(request->request_id);
+        dbgln("RequestServer::check_active_requests(): #{} Removed", request->request_id);
     }
 }
 

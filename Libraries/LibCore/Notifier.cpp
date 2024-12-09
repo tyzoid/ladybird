@@ -30,10 +30,13 @@ void Notifier::set_enabled(bool enabled)
     if (enabled == m_is_enabled)
         return;
     m_is_enabled = enabled;
-    if (enabled)
+    if (enabled) {
         Core::EventLoop::register_notifier({}, *this);
-    else
+        dbgln("Notifier::set_enabled(fd {}) = Enabled", m_fd);
+    } else {
         Core::EventLoop::unregister_notifier({}, *this);
+        dbgln("Notifier::set_enabled(fd {}) = Disabled", m_fd);
+    }
 }
 
 void Notifier::close()
